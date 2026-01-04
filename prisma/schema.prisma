@@ -1,0 +1,77 @@
+ generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String     @id @default(auto()) @map("_id") @db.ObjectId
+  username  String     @unique
+  password  String
+  role      String
+  portfolio Portfolio[]
+}
+
+model Portfolio {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime @default(now())
+  userId      String   @db.ObjectId
+  title       String
+  description String
+  github      String?
+  website     String?
+
+  user User   @relation(fields: [userId], references: [id])
+}
+
+model Profile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  name      String
+  email     String
+  phone     String
+  about     String
+}
+
+model SkillGroup {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  category  String
+  items     String[]
+  order     Int?
+}
+
+model Experience {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt   DateTime @default(now())
+  role        String
+  company     String
+  duration    String
+  description String
+  tech        String[]
+  order       Int?
+}
+
+model Education {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt  DateTime @default(now())
+  degree     String
+  institution String
+  year       String
+  cgpa       String?
+  highlights String[]
+  order      Int?
+}
+
+model Message {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  createdAt DateTime @default(now())
+  username  String
+  subject   String
+  message   String
+  reply     String?
+  replied   Boolean @default(false)
+}
