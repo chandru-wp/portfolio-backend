@@ -581,9 +581,201 @@ app.delete("/api/messages/:id", async (req, res) => {
   }
 });
 
+/* AI ASSISTANT ENDPOINT */
+app.post("/api/ai-query", async (req, res) => {
+  try {
+    const { question, context } = req.body;
+
+    if (!question) {
+      return res.status(400).json({ message: "Question is required" });
+    }
+
+    // Fetch portfolio data from database
+    const [profile, skills, experience, education, projects] = await Promise.all([
+      prisma.profile.findFirst(),
+      prisma.skillGroup.findMany({ orderBy: { order: 'asc' } }),
+      prisma.experience.findMany(),
+      prisma.education.findMany(),
+      prisma.portfolio.findMany()
+    ]);
+
+    const portfolioData = {
+      profile,
+      skills,
+      experience,
+      education,
+      projects
+    };
+
+    // Generate response using database data
+    const response = generateAIResponse(question, portfolioData);
+
+    res.json({ answer: response, success: true });
+  } catch (error) {
+    console.error('AI Query error:', error);
+    res.status(500).json({ message: "Error processing AI query", error: error.message });
+  }
+});
+
+// Helper function to generate contextual AI responses using database data
+function generateAIResponse(question, portfolioData = {}) {
+  const lowerQuestion = question.toLowerCase();
+  const { profile = {}, skills = [], experience = [], education = [], projects = [] } = portfolioData;
+  
+  // SKILLS QUESTIONS
+  if (lowerQuestion.includes('skill') || lowerQuestion.includes('technology') || lowerQuestion.includes('tech stack') || lowerQuestion.includes('proficien')) {
+    let response = '';
+    
+    if (skills && skills.length > 0) {
+      response = `Here are ${profile.name || 'Chandru'}'s skills:\n\n`;
+      
+      skills.forEach(skillGroup => {
+        const categoryLower = skillGroup.category?.toLowerCase() || '';
+        let icon = '✨';
+        
+        if (categoryLower.includes('front')) icon = '🎨';
+        else if (categoryLower.includes('back')) icon = '⚙️';
+        else if (categoryLower.includes('database') || categoryLower.includes('db')) icon = '💾';
+        else if (categoryLower.includes('cloud')) icon = '☁️';
+        else if (categoryLower.includes('ai') || categoryLower.includes('ml')) icon = '🤖';
+        else if (categoryLower.includes('tool') || categoryLower.includes('dev')) icon = '🔧';
+        
+        const items = skillGroup.items && Array.isArray(skillGroup.items) ? skillGroup.items.join(', ') : 'N/A';
+        response += `${icon} ${skillGroup.category}: ${items}\n`;
+      });
+      
+      response += `\n✅ These technologies enable building scalable, modern web applications with best practices!`;
+    } else {
+      response = `${profile.name || 'Chandru'}'s core skills include:\n\n🎨 Frontend: React, JavaScript, Vite, Tailwind CSS, TypeScript, HTML, CSS\n⚙️ Backend: Node.js, Express.js, Python, Flask, Firebase\n💾 Database: PostgreSQL, MongoDB, Prisma\n☁️ Cloud: AWS, Render, Cloud Services\n🤖 AI/ML: Machine Learning, Data Science\n🔧 DevOps: Git, Docker, CI/CD\n\n✅ Proficient in building full-stack applications!`;
+    }
+    return response;
+  }
+  
+  // PROJECT QUESTIONS
+  if (lowerQuestion.includes('project') || lowerQuestion.includes('built') || lowerQuestion.includes('portfolio')) {
+    let response = '';
+    
+    if (projects && projects.length > 0) {
+      response = `🚀 ${profile.name || 'Chandru'}'s Featured Projects:\n\n`;
+      
+      projects.forEach((proj, idx) => {
+        response += `${idx + 1}. ${proj.title}\n`;
+        if (proj.description) response += `   📝 ${proj.description}\n`;
+        if (proj.tech && Array.isArray(proj.tech) && proj.tech.length > 0) {
+          response += `   🛠️  Tech: ${proj.tech.join(', ')}\n`;
+        }
+        if (proj.github) response += `   🐙 GitHub: ${proj.github}\n`;
+        if (proj.website) response += `   🌐 Live: ${proj.website}\n`;
+        response += '\n';
+      });
+      
+      response += `💡 Each project showcases expertise in full-stack development, problem-solving, and modern best practices!`;
+    } else {
+      response = `${profile.name || 'Chandru'} has developed impressive projects:\n\n1. 🚀 UptimeEye - Uptime monitoring platform with real-time alerts\n2. 🔗 Rydirect - URL shortening service\n3. 🤖 MyMind (NYRA) - AI-powered personal assistant\n\nDemonstrating expertise in full-stack development and innovative solutions!`;
+    }
+    return response;
+  }
+  
+  // EXPERIENCE QUESTIONS
+  if (lowerQuestion.includes('experience') || lowerQuestion.includes('job') || lowerQuestion.includes('work') || lowerQuestion.includes('employment')) {
+    let response = '';
+    
+    if (experience && experience.length > 0) {
+      response = `💼 ${profile.name || 'Chandru'}'s Work Experience:\n\n`;
+      
+      experience.forEach((exp, idx) => {
+        response += `${idx + 1}. 📍 ${exp.role} at ${exp.company}\n`;
+        if (exp.duration) response += `   ⏱️  ${exp.duration}\n`;
+        if (exp.description) response += `   📋 ${exp.description}\n`;
+        if (exp.tech && Array.isArray(exp.tech) && exp.tech.length > 0) {
+          response += `   🛠️  Tech Used: ${exp.tech.join(', ')}\n`;
+        }
+        response += '\n';
+      });
+      
+      response += `✅ Proven experience in full-stack development, backend systems, and scalable applications!`;
+    } else {
+      response = `💼 ${profile.name || 'Chandru'} has expertise in:\n\n• Full-stack web development\n• Building scalable backend systems\n• Frontend UI/UX design with React\n• Database design & optimization\n• Cloud deployment (AWS, Render)\n• API development and integration\n• DevOps and CI/CD pipelines\n\n✅ Well-equipped to handle complex technical projects and deliver quality solutions!`;
+    }
+    return response;
+  }
+  
+  // EDUCATION QUESTIONS
+  if (lowerQuestion.includes('education') || lowerQuestion.includes('degree') || lowerQuestion.includes('college') || lowerQuestion.includes('university') || lowerQuestion.includes('study')) {
+    let response = '';
+    
+    if (education && education.length > 0) {
+      response = `📚 ${profile.name || 'Chandru'}'s Education:\n\n`;
+      
+      education.forEach((edu, idx) => {
+        response += `${idx + 1}. 🎓 ${edu.degree}\n`;
+        if (edu.institution) response += `   🏫 ${edu.institution}\n`;
+        if (edu.year) response += `   📅 Year: ${edu.year}\n`;
+        if (edu.cgpa) response += `   ⭐ CGPA: ${edu.cgpa}\n`;
+        if (edu.highlights && Array.isArray(edu.highlights) && edu.highlights.length > 0) {
+          response += `   🏆 Highlights: ${edu.highlights.join(', ')}\n`;
+        }
+        response += '\n';
+      });
+      
+      response += `✅ Continuous learner with strong academic foundation and hands-on project experience!`;
+    } else {
+      response = `📚 Education & Learning:\n\n• 🎓 Formal education in relevant field\n• 📖 Continuous learning in new technologies\n• 💻 Self-taught through building real-world projects\n• 🤝 Active in tech communities and open-source\n• 🏆 Strong focus on practical, hands-on learning\n\n✅ Dedicated to staying updated with latest technologies and industry best practices!`;
+    }
+    return response;
+  }
+  
+  // CONTACT/HIRE QUESTIONS
+  if (lowerQuestion.includes('contact') || lowerQuestion.includes('email') || lowerQuestion.includes('phone') || lowerQuestion.includes('reach') || lowerQuestion.includes('hire')) {
+    let response = `📞 Contact ${profile.name || 'Chandru'}:\n\n`;
+    
+    if (profile.email) response += `📧 Email: ${profile.email}\n`;
+    if (profile.phone) response += `📱 Phone: ${profile.phone}\n`;
+    if (profile.github) response += `🐙 GitHub: ${profile.github}\n`;
+    if (profile.linkedin) response += `💼 LinkedIn: ${profile.linkedin}\n`;
+    
+    response += `\n💼 Available for:\n• ✅ Freelance projects\n• ✅ Full-time opportunities\n• ✅ Code reviews & consultations\n• ✅ Mentoring & training\n• ✅ Custom solutions\n\n🚀 Let's collaborate on amazing projects!`;
+    return response;
+  }
+  
+  // ABOUT QUESTIONS
+  if (lowerQuestion.includes('about') || lowerQuestion.includes('who') || lowerQuestion.includes('introduce') || lowerQuestion.includes('bio')) {
+    let response = `👤 About ${profile.name || 'Chandru'}:\n\n`;
+    
+    if (profile.about) {
+      response += `${profile.about}\n\n`;
+    } else {
+      response += `Full-stack developer passionate about building scalable web applications and solving complex technical problems.\n\n`;
+    }
+    
+    response += `✨ Expertise: Full-stack development, React, Node.js, Cloud technologies\n🎯 Focus: Creating efficient, user-friendly solutions\n📈 Goal: Building impactful projects that make a difference\n\n`;
+    
+    if (profile.email || profile.phone) {
+      response += `📞 Connect:\n`;
+      if (profile.email) response += `📧 ${profile.email}\n`;
+      if (profile.phone) response += `📱 ${profile.phone}\n`;
+    }
+    
+    return response;
+  }
+  
+  // GREETING QUESTIONS
+  if (lowerQuestion.match(/^(hi|hello|hey|greetings|hey there)/)) {
+    return `👋 Hello! I'm Neurova AI, ${profile.name || 'Chandru'}'s intelligent portfolio assistant.\n\nI can help you learn about:\n\n🛠️  Skills & Technologies\n🚀 Projects & Achievements\n💼 Work Experience\n📚 Education\n📞 Contact Information\n👤 Background\n\n💡 Just ask me anything! What would you like to know?`;
+  }
+  
+  // HELP QUESTIONS
+  if (lowerQuestion.includes('help') || lowerQuestion.includes('what can') || lowerQuestion.includes('what do you do')) {
+    return `🤖 I'm here to help! I can tell you about:\n\n📚 PORTFOLIO INFORMATION:\n✅ Skills & Technical Expertise\n✅ Projects & Achievements\n✅ Work Experience & Background\n✅ Education & Qualifications\n✅ Contact Information\n\n💡 EXAMPLE QUESTIONS:\n• "What are your skills?"\n• "Tell me about projects"\n• "What's your work experience?"\n• "How do I contact you?"\n• "What's your background?"\n\nJust ask anything and I'll provide detailed information! 😊`;
+  }
+  
+  // DEFAULT RESPONSE
+  return `That's a great question! 🤔\n\nI specialize in information about ${profile.name || 'Chandru'}'s:\n\n✨ Skills & Technologies\n🚀 Projects & Portfolio\n💼 Professional Experience\n📚 Education\n📞 Contact Details\n\n💡 Try asking about specific topics like:\n• "What are the main skills?"\n• "Tell me about projects"\n• "What's the work experience?"\n• "How to contact?"\n\nWhat would you like to know? 😊`;
+}
+
 /* ROOT */
 app.get("/", (req, res) => {
-  res.send("🚀 Server Ready — Users + Roles + Portfolio (Only 2 Tables)");
+  res.send("🚀 Server Ready — Users + Roles + Portfolio + AI Assistant");
 });
 
 /* START SERVER */
