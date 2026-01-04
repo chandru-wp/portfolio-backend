@@ -13,7 +13,9 @@ const allowedOrigins = [
   'http://localhost:5175',
   'http://localhost:3000',
   'http://localhost:5001',
-  'https://chandru-wp.github.io'
+  'https://chandru-wp.github.io',
+  'https://chandrukannan.me',
+  'https://www.chandrukannan.me'
 ];
 
 app.use((req, res, next) => {
