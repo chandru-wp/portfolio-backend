@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const { PrismaClient } = require('@prisma/client');
+const { generateToken, authMiddleware, optionalAuthMiddleware } = require('./utils/jwt');
 
 const prisma = new PrismaClient();
 const app = express();
@@ -249,10 +250,18 @@ app.post("/api/register", async (req, res) => {
       data: { username, password, role }
     });
 
+    // Generate JWT token
+    const token = generateToken(newUser.id, newUser.username, newUser.role);
+
     console.log('User registered successfully:', username);
     res.status(201).json({
       message: "Registered successfully",
-      user: newUser
+      token,
+      user: {
+        id: newUser.id,
+        username: newUser.username,
+        role: newUser.role
+      }
     });
 
   } catch (error) {
@@ -286,11 +295,18 @@ app.post("/api/login", async (req, res) => {
       return res.status(400).json({ message: "Incorrect password" });
     }
 
+    // Generate JWT token
+    const token = generateToken(user.id, user.username, user.role);
+
     console.log('Login successful for:', username);
     res.json({
       message: "Login successful",
-      username: user.username,
-      role: user.role
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      }
     });
 
   } catch (error) {
@@ -321,10 +337,11 @@ app.put("/api/change-role/:id", async (req, res) => {
    PORTFOLIO CRUD
 ===================================================== */
 
-// CREATE Portfolio
-app.post("/api/portfolio", async (req, res) => {
+// CREATE Portfolio (Protected - requires auth)
+app.post("/api/portfolio", authMiddleware, async (req, res) => {
   try {
-    const { userId, title, description, github, website } = req.body;
+    const { title, description, github, website } = req.body;
+    const userId = req.user.userId; // Get from JWT token
 
     const save = await prisma.portfolio.create({
       data: { userId, title, description, github, website }
@@ -365,8 +382,8 @@ app.get("/api/portfolio/:id", async (req, res) => {
   }
 });
 
-// UPDATE Portfolio
-app.put("/api/portfolio/:id", async (req, res) => {
+// UPDATE Portfolio (Protected - requires auth)
+app.put("/api/portfolio/:id", authMiddleware, async (req, res) => {
   try {
     const updated = await prisma.portfolio.update({
       where: { id: req.params.id },
@@ -379,8 +396,8 @@ app.put("/api/portfolio/:id", async (req, res) => {
   }
 });
 
-// DELETE Portfolio
-app.delete("/api/portfolio/:id", async (req, res) => {
+// DELETE Portfolio (Protected - requires auth)
+app.delete("/api/portfolio/:id", authMiddleware, async (req, res) => {
   try {
     await prisma.portfolio.delete({
       where: { id: req.params.id }
@@ -392,8 +409,8 @@ app.delete("/api/portfolio/:id", async (req, res) => {
   }
 });
 
-// Update profile (no id: updates the first profile)
-app.put('/api/profile', async (req, res) => {
+// Update profile (no id: updates the first profile) - Protected
+app.put('/api/profile', authMiddleware, async (req, res) => {
   try {
     const existing = await prisma.profile.findFirst({ select: { id: true } });
     if (!existing) return res.status(404).json({ error: 'Profile not found' });
@@ -408,8 +425,8 @@ app.put('/api/profile', async (req, res) => {
   }
 });
 
-// Update profile by id
-app.put('/api/profile/:id', async (req, res) => {
+// Update profile by id - Protected
+app.put('/api/profile/:id', authMiddleware, async (req, res) => {
   try {
     const existing = await prisma.profile.findUnique({
       where: { id: req.params.id },
@@ -427,8 +444,8 @@ app.put('/api/profile/:id', async (req, res) => {
   }
 });
 
-// Update skill group
-app.put('/api/skills/:id', async (req, res) => {
+// Update skill group - Protected
+app.put('/api/skills/:id', authMiddleware, async (req, res) => {
   try {
     const updated = await prisma.skillGroup.update({
       where: { id: req.params.id },
@@ -440,8 +457,8 @@ app.put('/api/skills/:id', async (req, res) => {
   }
 });
 
-// Update experience
-app.put('/api/experience/:id', async (req, res) => {
+// Update experience - Protected
+app.put('/api/experience/:id', authMiddleware, async (req, res) => {
   try {
     const updated = await prisma.experience.update({
       where: { id: req.params.id },
@@ -514,8 +531,8 @@ app.post("/api/messages", async (req, res) => {
   }
 });
 
-// REPLY to a message (admin only)
-app.put("/api/messages/:id/reply", async (req, res) => {
+// REPLY to a message (admin only) - Protected
+app.put("/api/messages/:id/reply", authMiddleware, async (req, res) => {
   try {
     const { reply } = req.body;
 
